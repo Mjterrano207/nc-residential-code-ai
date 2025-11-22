@@ -1,6 +1,6 @@
 # query.py - The RAG brain (Claude + your PDF)
 from langchain_anthropic import ChatAnthropic
-from langchain.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 import streamlit as st
