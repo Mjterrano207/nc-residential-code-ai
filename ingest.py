@@ -2,11 +2,11 @@
 import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings  # ← OpenAI embeddings
+from langchain_community.vectorstores import FAISS  # ← FAISS vector store
 
 st.title("Indexing 2024 NC Residential Code")
-st.write("This only needs to run once. It will take 5–10 minutes the first time.")
+st.write("This only needs to run once. It will take 3–5 minutes.")
 
 pdf_path = "uploaded_pdf.pdf"
 
@@ -21,9 +21,9 @@ if not st.session_state.get("indexed", False):
             chunks = splitter.split_documents(documents)
             st.info(f"Split into {len(chunks)} chunks")
 
-            embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
-            vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory="./nc_db")
-            vectorstore.persist()
+            embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+            vectorstore = FAISS.from_documents(chunks, embeddings)
+            vectorstore.save_local("./nc_db")
 
         st.session_state.indexed = True
         st.success("Indexing complete! Your AI is ready.")
