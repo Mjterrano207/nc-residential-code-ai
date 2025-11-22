@@ -44,7 +44,7 @@ if os.path.exists("nc_db"):
             with st.spinner("Searching the code…"):
                 answer = ask(prompt)
             st.write(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
 
 st.markdown("---")
 st.markdown("Voluntary Jan 1, 2025 • Mandatory Jul 1, 2025")
