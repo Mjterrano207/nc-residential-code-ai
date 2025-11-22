@@ -2,7 +2,6 @@
 import streamlit as st
 import os
 from query import ask
-
 st.set_page_config(page_title="2024 NC Residential Code AI", layout="centered")
 st.title("2024 North Carolina Residential Code AI")
 st.caption("Powered by your exact PDF + Claude 3.5 Sonnet")
