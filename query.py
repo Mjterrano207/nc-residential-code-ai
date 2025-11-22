@@ -1,45 +1,49 @@
-# query.py - The RAG brain (Claude + your PDF)
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS  # ← New FAISS import
-from langchain_core.prompts import PromptTemplate
+# query.py - Simplified RAG brain (OpenAI + pure Python)
 import streamlit as st
 import os
+from openai import OpenAI
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity  # numpy-based
 
-# Load keys from secrets
-os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
-os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+# Load OpenAI key from secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Load embeddings
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+# Global: Simple in-memory chunks (loaded from ingest)
+chunks = st.session_state.get("chunks", [])
 
-# Load the indexed database with FAISS
-db = FAISS.load_local("./nc_db", embeddings, allow_dangerous_deserialization=True)
-retriever = db.as_retriever(search_kwargs={"k": 6})
+# Simple embeddings function (OpenAI)
+def get_embedding(text):
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text
+    )
+    return np.array(response.data[0].embedding)
 
-# Claude 3.5 Sonnet
-llm = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
-    temperature=0.0,
-    max_tokens=4096
-)
+# Simple similarity search
+def search_chunks(question, k=6):
+    if not chunks:
+        return []
+    question_emb = get_embedding(question)
+    chunk_embs = np.array([get_embedding(chunk["text"]) for chunk in chunks])
+    similarities = cosine_similarity(question_emb.reshape(1, -1), chunk_embs)[0]
+    top_indices = np.argsort(similarities)[::-1][:k]
+    return [chunks[i] for i in top_indices]
 
-prompt = PromptTemplate.from_template("""
-You are a North Carolina-licensed Professional Engineer with perfect knowledge of the 2024 North Carolina Residential Code (2021 IRC + NC amendments).
-Enforcement dates:
-• Voluntary use permitted: January 1, 2025
-• Mandatory statewide: July 1, 2025
-• 2018 code still applies until then
-Answer using ONLY the retrieved sections below.
-Always cite exact section numbers (e.g., R314.3.1, Table R507.5, or NC Amendment to R302.1).
-Quote the code when helpful.
-Question: {question}
-Retrieved sections (page numbers included):
-{context}
-Answer in clear, concise language suitable for plan review:""")
-
+# Generate answer with OpenAI
 def ask(question):
-    docs = retriever.invoke(question)
-    context = "\n\n".join([f"Page {d.metadata.get('page', '?')}: {d.page_content}" for d in docs])
-    chain = prompt | llm
-    return chain.invoke({"question": question, "context": context}).content
+    if not chunks:
+        return "Please index the PDF first."
+    docs = search_chunks(question)
+    context = "\n\n".join([f"Page {doc['page']}: {doc['text']}" for doc in docs])
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # Lightweight model
+        messages=[
+            {"role": "system", "content": "You are a North Carolina-licensed Professional Engineer with perfect knowledge of the 2024 North Carolina Residential Code (2021 IRC + NC amendments). Enforcement dates: Voluntary Jan 1, 2025; Mandatory Jul 1, 2025. Answer using ONLY the context below. Cite exact sections (e.g., R314.3.1). Be concise for plan review."},
+            {"role": "user", "content": f"Question: {question}\nContext: {context}"}
+        ],
+        temperature=0.0,
+        max_tokens=1000
+    )
+    return response.choices[0].message.content
+
+# For app.py to use
