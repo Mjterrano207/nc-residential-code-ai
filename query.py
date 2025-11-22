@@ -1,7 +1,7 @@
 # query.py - The RAG brain (Claude + your PDF)
 from langchain_anthropic import ChatAnthropic
 from langchain_chroma import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 import streamlit as st
 import os
@@ -10,7 +10,7 @@ import os
 os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
 
 # Load the indexed database
-embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 db = Chroma(persist_directory="./nc_db", embedding_function=embeddings)
 retriever = db.as_retriever(search_kwargs={"k": 6})
 
