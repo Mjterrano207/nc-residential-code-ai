@@ -6,3 +6,4 @@ pypdf2
 sentence-transformers
 streamlit
 python-dotenv
+langchain-chroma
